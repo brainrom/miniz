@@ -125,18 +125,6 @@
 /* The current downside is the times written to your archives will be from 1979. */
 /*#define MINIZ_NO_TIME */
 
-/* Define MINIZ_NO_DEFLATE_APIS to disable all compression API's. */
-/*#define MINIZ_NO_DEFLATE_APIS */
-
-/* Define MINIZ_NO_INFLATE_APIS to disable all decompression API's. */
-/*#define MINIZ_NO_INFLATE_APIS */
-
-/* Define MINIZ_NO_ARCHIVE_APIS to disable all ZIP archive API's. */
-/*#define MINIZ_NO_ARCHIVE_APIS */
-
-/* Define MINIZ_NO_ARCHIVE_WRITING_APIS to disable all writing related ZIP archive API's. */
-/*#define MINIZ_NO_ARCHIVE_WRITING_APIS */
-
 /* Define MINIZ_NO_ZLIB_APIS to remove all ZLIB-style compression/decompression API's. */
 /*#define MINIZ_NO_ZLIB_APIS */
 

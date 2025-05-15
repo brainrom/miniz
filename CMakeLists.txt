@@ -46,6 +46,11 @@ option(BUILD_SHARED_LIBS "Build shared library instead of static" OFF)
 option(BUILD_NO_STDIO" Build a without stdio version" OFF)
 option(BUILD_TESTS "Build tests" ${MINIZ_STANDALONE_PROJECT})
 option(INSTALL_PROJECT "Install project" ${MINIZ_STANDALONE_PROJECT})
+option(BUILD_TESTS "Build tests" ${MINIZ_STANDALONE_PROJECT})
+option(MINIZ_NO_DEFLATE_APIS "Disable all compression API's" OFF)
+option(MINIZ_NO_INFLATE_APIS "Disable all decompression API's" OFF)
+option(MINIZ_NO_ARCHIVE_APIS "Disable all all ZIP archive API's" OFF)
+option(MINIZ_NO_ARCHIVE_WRITING_APIS "Disable all writing related ZIP archive API's" OFF)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
@@ -140,8 +145,35 @@ if(AMALGAMATE_SOURCES)
 	)
 else(AMALGAMATE_SOURCES)
   include(GenerateExportHeader)
-  set(miniz_SOURCE miniz.c miniz_zip.c miniz_tinfl.c miniz_tdef.c)
+  set(miniz_SOURCE miniz.c)
+
+  add_library(${PROJECT_NAME}_config INTERFACE)
+
+  if (NOT MINIZ_NO_DEFLATE_APIS)
+    set(miniz_SOURCE ${miniz_SOURCE} miniz_tdef.c)
+  else()
+    target_compile_definitions(${PROJECT_NAME}_config INTERFACE MINIZ_NO_DEFLATE_APIS)
+  endif()
+
+  if (NOT MINIZ_NO_INFLATE_APIS)
+    set(miniz_SOURCE ${miniz_SOURCE} miniz_tinfl.c)
+  else()
+    target_compile_definitions(${PROJECT_NAME}_config  INTERFACE MINIZ_NO_INFLATE_APIS)
+  endif()
+
+  if (NOT MINIZ_NO_ARCHIVE_APIS)
+    set(miniz_SOURCE ${miniz_SOURCE} miniz_zip.c)
+  else()
+    target_compile_definitions(${PROJECT_NAME}_config  INTERFACE MINIZ_NO_ARCHIVE_APIS)
+  endif()
+
+  if (MINIZ_NO_ARCHIVE_WRITING_APIS)
+    target_compile_definitions(${PROJECT_NAME}_config  INTERFACE MINIZ_NO_ARCHIVE_WRITING_APIS)
+  endif()
+
   add_library(${PROJECT_NAME} ${miniz_SOURCE})
+  target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_config)
+
   generate_export_header(${PROJECT_NAME})
 
   if(NOT BUILD_SHARED_LIBS)
