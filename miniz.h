@@ -153,10 +153,6 @@
 #define MINIZ_NO_ARCHIVE_APIS
 #endif
 
-#ifdef MINIZ_NO_DEFLATE_APIS
-#define MINIZ_NO_ARCHIVE_WRITING_APIS
-#endif
-
 #if defined(__TINYC__) && (defined(__linux) || defined(__linux__))
 /* TODO: Work around "error: include file 'sys\utime.h' when compiling with tcc on Linux */
 #define MINIZ_NO_TIME

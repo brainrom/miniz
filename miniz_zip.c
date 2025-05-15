@@ -3287,13 +3287,18 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         mz_uint64 local_dir_header_ofs = pZip->m_archive_size, cur_archive_file_ofs = pZip->m_archive_size, comp_size = 0;
         size_t archive_name_size;
         mz_uint8 local_dir_header[MZ_ZIP_LOCAL_DIR_HEADER_SIZE];
-        tdefl_compressor *pComp = NULL;
         mz_bool store_data_uncompressed;
         mz_zip_internal_state *pState;
         mz_uint8 *pExtra_data = NULL;
         mz_uint32 extra_size = 0;
         mz_uint8 extra_data[MZ_ZIP64_MAX_CENTRAL_EXTRA_FIELD_SIZE];
         mz_uint16 bit_flags = 0;
+#ifndef MINIZ_NO_DEFLATE_APIS
+        tdefl_compressor *pComp = NULL;
+#else
+        if ((int)level_and_flags > 0)
+            return MZ_FALSE;
+#endif
 
         if ((int)level_and_flags < 0)
             level_and_flags = MZ_DEFAULT_LEVEL;
@@ -3400,8 +3405,12 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
         if ((!store_data_uncompressed) && (buf_size))
         {
+#ifndef MINIZ_NO_DEFLATE_APIS
             if (NULL == (pComp = (tdefl_compressor *)pZip->m_pAlloc(pZip->m_pAlloc_opaque, 1, sizeof(tdefl_compressor))))
                 return mz_zip_set_error(pZip, MZ_ZIP_ALLOC_FAILED);
+#else
+            return MZ_FALSE;
+#endif
         }
 
         /*  Prediction */
@@ -3439,6 +3448,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         }
         else if (buf_size)
         {
+#ifndef MINIZ_NO_DEFLATE_APIS
             mz_zip_writer_add_state state;
             return MZ_FALSE; /* TODO: compress to ram buf, replace mz_zip_writer_add_put_buf_callback */
 
@@ -3458,6 +3468,10 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         }
         pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
         pComp = NULL;
+#else
+            return MZ_FALSE;
+        }
+#endif
 
         if (uncomp_size)
         {
@@ -3611,13 +3625,15 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         mz_uint64 local_dir_header_ofs = pZip->m_archive_size, cur_archive_file_ofs = pZip->m_archive_size, comp_size = 0;
         size_t archive_name_size;
         mz_uint8 local_dir_header[MZ_ZIP_LOCAL_DIR_HEADER_SIZE];
-        tdefl_compressor *pComp = NULL;
         mz_bool store_data_uncompressed;
         mz_zip_internal_state *pState;
         mz_uint8 *pExtra_data = NULL;
         mz_uint32 extra_size = 0;
         mz_uint8 extra_data[MZ_ZIP64_MAX_CENTRAL_EXTRA_FIELD_SIZE];
         mz_uint16 bit_flags = 0;
+#ifndef MINIZ_NO_DEFLATE_APIS
+        tdefl_compressor *pComp = NULL;
+#endif
 
         if ((int)level_and_flags < 0)
             level_and_flags = MZ_DEFAULT_LEVEL;
@@ -3630,6 +3646,11 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
         level = level_and_flags & 0xF;
         store_data_uncompressed = ((!level) || (level_and_flags & MZ_ZIP_FLAG_COMPRESSED_DATA));
+
+#ifdef MINIZ_NO_DEFLATE_APIS
+        if (!store_data_uncompressed)
+            return MZ_FALSE;
+#endif
 
         if ((!pZip) || (!pZip->m_pState) || (pZip->m_zip_mode != MZ_ZIP_MODE_WRITING) || ((buf_size) && (!pBuf)) || (!pArchive_name) || ((comment_size) && (!pComment)) || (level > MZ_UBER_COMPRESSION))
             return mz_zip_set_error(pZip, MZ_ZIP_INVALID_PARAMETER);
@@ -3722,16 +3743,18 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         if ((!mz_zip_array_ensure_room(pZip, &pState->m_central_dir, MZ_ZIP_CENTRAL_DIR_HEADER_SIZE + archive_name_size + comment_size + (pState->m_zip64 ? MZ_ZIP64_MAX_CENTRAL_EXTRA_FIELD_SIZE : 0))) || (!mz_zip_array_ensure_room(pZip, &pState->m_central_dir_offsets, 1)))
             return mz_zip_set_error(pZip, MZ_ZIP_ALLOC_FAILED);
 
+#ifndef MINIZ_NO_DEFLATE_APIS
+
         if ((!store_data_uncompressed) && (buf_size))
         {
             if (NULL == (pComp = (tdefl_compressor *)pZip->m_pAlloc(pZip->m_pAlloc_opaque, 1, sizeof(tdefl_compressor))))
                 return mz_zip_set_error(pZip, MZ_ZIP_ALLOC_FAILED);
         }
+#endif
 
         if (!mz_zip_writer_write_zeros(pZip, cur_archive_file_ofs, num_alignment_padding_bytes))
         {
-            pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
-            return MZ_FALSE;
+            goto free_pComp_and_set_error;
         }
 
         local_dir_header_ofs += num_alignment_padding_bytes;
@@ -3767,8 +3790,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pArchive_name, archive_name_size) != archive_name_size)
             {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
-                return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
+                goto free_pComp_and_set_error;
             }
             cur_archive_file_ofs += archive_name_size;
 
@@ -3794,8 +3816,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pArchive_name, archive_name_size) != archive_name_size)
             {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
-                return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
+                goto free_pComp_and_set_error;
             }
             cur_archive_file_ofs += archive_name_size;
         }
@@ -3812,8 +3833,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         {
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pBuf, buf_size) != buf_size)
             {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
-                return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
+                goto free_pComp_and_set_error;
             }
 
             cur_archive_file_ofs += buf_size;
@@ -3821,6 +3841,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         }
         else if (buf_size)
         {
+#ifndef MINIZ_NO_DEFLATE_APIS
             mz_zip_writer_add_state state;
 
             state.m_pZip = pZip;
@@ -3840,6 +3861,10 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
         pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
         pComp = NULL;
+#else
+            return MZ_FALSE;
+        }
+#endif
 
         if (uncomp_size)
         {
@@ -3886,6 +3911,12 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         pZip->m_archive_size = cur_archive_file_ofs;
 
         return MZ_TRUE;
+
+free_pComp_and_set_error:
+#ifndef MINIZ_NO_DEFLATE_APIS
+        pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
+#endif
+        return mz_zip_set_error(pZip, MZ_ZIP_COMPRESSION_FAILED);
     }
 
     mz_bool mz_zip_writer_add_read_buf_callback(mz_zip_archive *pZip, const char *pArchive_name, mz_file_read_func read_callback, void *callback_opaque, mz_uint64 max_size, const MZ_TIME_T *pFile_time, const void *pComment, mz_uint16 comment_size, mz_uint level_and_flags,
@@ -4095,6 +4126,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             }
             else
             {
+#ifndef MINIZ_NO_DEFLATE_APIS
                 mz_bool result = MZ_FALSE;
                 mz_zip_writer_add_state state;
                 tdefl_compressor *pComp = (tdefl_compressor *)pZip->m_pAlloc(pZip->m_pAlloc_opaque, 1, sizeof(tdefl_compressor));
@@ -4163,6 +4195,10 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             }
 
             pZip->m_pFree(pZip->m_pAlloc_opaque, pRead_buf);
+#else
+                return MZ_FALSE;
+            }
+#endif
         }
 
         if (!(level_and_flags & MZ_ZIP_FLAG_WRITE_HEADER_SET_SIZE))
