@@ -52,8 +52,6 @@ option(MINIZ_NO_INFLATE_APIS "Disable all decompression API's" OFF)
 option(MINIZ_NO_ARCHIVE_APIS "Disable all all ZIP archive API's" OFF)
 option(MINIZ_NO_ARCHIVE_WRITING_APIS "Disable all writing related ZIP archive API's" OFF)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-
 if(INSTALL_PROJECT)
   include(GNUInstallDirs)
 endif()
@@ -176,12 +174,11 @@ else(AMALGAMATE_SOURCES)
 
   generate_export_header(${PROJECT_NAME})
 
-  if(NOT BUILD_SHARED_LIBS)
-    string(TOUPPER ${PROJECT_NAME} PROJECT_UPPER)
-    set_target_properties(${PROJECT_NAME}
-        PROPERTIES INTERFACE_COMPILE_DEFINITIONS ${PROJECT_UPPER}_STATIC_DEFINE)
+  if(BUILD_SHARED_LIBS)
+    set_target_properties(miniz PROPERTIES C_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
   else()
-    set_property(TARGET ${PROJECT_NAME} PROPERTY C_VISIBILITY_PRESET hidden)
+    string(TOUPPER ${PROJECT_NAME} PROJECT_UPPER)
+    target_compile_definitions(miniz PUBLIC ${PROJECT_UPPER}_STATIC_DEFINE)
   endif()
 
   set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${MINIZ_VERSION})
