@@ -198,7 +198,9 @@ extern "C"
 
         size_t out_blk_remain;
 
+#ifndef MINIZ_NO_INFLATE_APIS
         tinfl_decompressor inflator;
+#endif
 
 #ifdef MINIZ_DISABLE_ZIP_READER_CRC32_CHECKS
         mz_uint padding;

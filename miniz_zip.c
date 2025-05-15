@@ -1546,13 +1546,16 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
     static mz_bool mz_zip_reader_extract_to_mem_no_alloc1(mz_zip_archive *pZip, mz_uint file_index, void *pBuf, size_t buf_size, mz_uint flags, void *pUser_read_buf, size_t user_read_buf_size, const mz_zip_archive_file_stat *st)
     {
-        int status = TINFL_STATUS_DONE;
-        mz_uint64 needed_size, cur_file_ofs, comp_remaining, out_buf_ofs = 0, read_buf_size, read_buf_ofs = 0, read_buf_avail;
+        mz_uint64 needed_size, cur_file_ofs;
         mz_zip_archive_file_stat file_stat;
-        void *pRead_buf;
         mz_uint32 local_header_u32[(MZ_ZIP_LOCAL_DIR_HEADER_SIZE + sizeof(mz_uint32) - 1) / sizeof(mz_uint32)];
         mz_uint8 *pLocal_header = (mz_uint8 *)local_header_u32;
+#ifndef MINIZ_NO_INFLATE_APIS
         tinfl_decompressor inflator;
+        int status = TINFL_STATUS_DONE;
+        void *pRead_buf;
+        mz_uint64 comp_remaining, out_buf_ofs = 0, read_buf_size, read_buf_ofs = 0, read_buf_avail;
+#endif
 
         if ((!pZip) || (!pZip->m_pState) || ((buf_size) && (!pBuf)) || ((user_read_buf_size) && (!pUser_read_buf)) || (!pZip->m_pRead))
             return mz_zip_set_error(pZip, MZ_ZIP_INVALID_PARAMETER);
@@ -1610,6 +1613,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             return MZ_TRUE;
         }
 
+#ifndef MINIZ_NO_INFLATE_APIS
         /* Decompress the file either directly from memory or from a file input buffer. */
         tinfl_init(&inflator);
 
@@ -1689,6 +1693,8 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             pZip->m_pFree(pZip->m_pAlloc_opaque, pRead_buf);
 
         return status == TINFL_STATUS_DONE;
+#endif
+        return MZ_FALSE;
     }
 
     mz_bool mz_zip_reader_extract_to_mem_no_alloc(mz_zip_archive *pZip, mz_uint file_index, void *pBuf, size_t buf_size, mz_uint flags, void *pUser_read_buf, size_t user_read_buf_size)
@@ -1880,6 +1886,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         }
         else
         {
+#ifndef MINIZ_NO_INFLATE_APIS
             tinfl_decompressor inflator;
             tinfl_init(&inflator);
 
@@ -1934,6 +1941,9 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
                     }
                 } while ((status == TINFL_STATUS_NEEDS_MORE_INPUT) || (status == TINFL_STATUS_HAS_MORE_OUTPUT));
             }
+#else
+            return MZ_FALSE;
+#endif
         }
 
         if ((status == TINFL_STATUS_DONE) && (!(flags & MZ_ZIP_FLAG_COMPRESSED_DATA)))
@@ -2082,6 +2092,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
         if (!((flags & MZ_ZIP_FLAG_COMPRESSED_DATA) || (!pState->file_stat.m_method)))
         {
+#ifndef MINIZ_NO_INFLATE_APIS
             /* Decompression required, init decompressor */
             tinfl_init(&pState->inflator);
 
@@ -2094,6 +2105,9 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
                 pZip->m_pFree(pZip->m_pAlloc_opaque, pState);
                 return NULL;
             }
+#else
+            return MZ_FALSE;
+#endif
         }
 
         return pState;
@@ -2156,6 +2170,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         }
         else
         {
+#ifndef MINIZ_NO_INFLATE_APIS
             do
             {
                 /* Calc ptr to write buffer - given current output pos and block size */
@@ -2222,6 +2237,9 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
                     copied_to_caller += to_copy;
                 }
             } while ((copied_to_caller < buf_size) && ((pState->status == TINFL_STATUS_NEEDS_MORE_INPUT) || (pState->status == TINFL_STATUS_HAS_MORE_OUTPUT)));
+#else
+            return MZ_FALSE;
+#endif
         }
 
         /* Return how many bytes were copied into user buffer */
@@ -3093,6 +3111,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         mz_uint64 m_comp_size;
     } mz_zip_writer_add_state;
 
+#ifndef MINIZ_NO_DEFLATE_APIS
     static mz_bool mz_zip_writer_add_put_buf_callback(const void *pBuf, int len, void *pUser)
     {
         mz_zip_writer_add_state *pState = (mz_zip_writer_add_state *)pUser;
@@ -3103,6 +3122,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
         pState->m_comp_size += len;
         return MZ_TRUE;
     }
+#endif
 
 #define MZ_ZIP64_MAX_LOCAL_EXTRA_FIELD_SIZE (sizeof(mz_uint16) * 2 + sizeof(mz_uint64) * 2)
 #define MZ_ZIP64_MAX_CENTRAL_EXTRA_FIELD_SIZE (sizeof(mz_uint16) * 2 + sizeof(mz_uint64) * 3)
