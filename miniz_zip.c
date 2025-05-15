@@ -3491,10 +3491,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
 
         /*  Actual write */
         if (!mz_zip_writer_write_zeros(pZip, cur_archive_file_ofs, num_alignment_padding_bytes))
-        {
-            pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
-            return MZ_FALSE;
-        }
+            return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
 
         local_dir_header_ofs += num_alignment_padding_bytes;
         if (pZip->m_file_offset_alignment)
@@ -3521,10 +3518,7 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             cur_archive_file_ofs += sizeof(local_dir_header);
 
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pArchive_name, archive_name_size) != archive_name_size)
-            {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
                 return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
-            }
             cur_archive_file_ofs += archive_name_size;
 
             if (pExtra_data != NULL)
@@ -3548,20 +3542,14 @@ static int mz_stat64(const char *path, struct __stat64 *buffer)
             cur_archive_file_ofs += sizeof(local_dir_header);
 
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pArchive_name, archive_name_size) != archive_name_size)
-            {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
                 return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
-            }
             cur_archive_file_ofs += archive_name_size;
         }
 
         if (store_data_uncompressed)
         {
             if (pZip->m_pWrite(pZip->m_pIO_opaque, cur_archive_file_ofs, pBuf, buf_size) != buf_size)
-            {
-                pZip->m_pFree(pZip->m_pAlloc_opaque, pComp);
                 return mz_zip_set_error(pZip, MZ_ZIP_FILE_WRITE_FAILED);
-            }
 
             cur_archive_file_ofs += buf_size;
             comp_size = buf_size;
